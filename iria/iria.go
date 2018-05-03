@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -146,17 +147,17 @@ func partialRequest(url string, part int, rangeString string, file *os.File) err
 		fmt.Sprintf("bytes=%v", rangeString))
 
 	//デバッグ用リクエストヘッダ出力
-	// dump, err := httputil.DumpRequestOut(req, false)
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Printf("%s", dump)
+	dump, err := httputil.DumpRequestOut(req, false)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s", dump)
 
 	res, err := http.DefaultClient.Do(req)
 
 	//デバッグ用レスポンスヘッダ出力
-	//dumpResp, _ := httputil.DumpResponse(res, false)
-	//fmt.Println(string(dumpResp))
+	dumpResp, _ := httputil.DumpResponse(res, false)
+	fmt.Println(string(dumpResp))
 
 	if _, err := io.Copy(file, res.Body); err != nil {
 		return err
