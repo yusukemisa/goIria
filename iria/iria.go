@@ -18,9 +18,9 @@ import (
 
 //Downloader is setting
 type Downloader struct {
-	url           string //取得対象URL
+	URL           string //取得対象URL
+	SplitNum      int    //ダウンロード分割数
 	contentLength int64  //取得対象ファイルサイズ
-	splitNum      int    //ダウンロード分割数
 	chunkLength   int64  //ダウンロード分割サイズ
 	eg            errgroup.Group
 }
@@ -47,8 +47,8 @@ func New(args []string) (*Downloader, error) {
 		}
 	}
 	return &Downloader{
-		url:      args[1],
-		splitNum: splitNum,
+		URL:      args[1],
+		SplitNum: splitNum,
 	}, nil
 }
 
@@ -86,16 +86,16 @@ func (d *Downloader) setChunkLength() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	res, err := ctxhttp.Head(ctx, http.DefaultClient, d.url)
+	res, err := ctxhttp.Head(ctx, http.DefaultClient, d.URL)
 	if err != nil {
 		return err
 	}
 	if "bytes" != res.Header.Get("Accept-Ranges") {
-		return fmt.Errorf("取得対象ファイルがrange request未対応でした:%v", d.url)
+		return fmt.Errorf("取得対象ファイルがrange request未対応でした:%v", d.URL)
 	}
 	//分割サイズの決定
 	d.contentLength = res.ContentLength
-	d.chunkLength = res.ContentLength / int64(d.splitNum)
+	d.chunkLength = res.ContentLength / int64(d.SplitNum)
 	log.Printf("Accept-Ranges:%v,ContentLength:%v,chunkSize:%v\n", res.Header.Get("Accept-Ranges"), res.ContentLength, d.chunkLength)
 	return nil
 }
@@ -105,12 +105,12 @@ func (d *Downloader) setChunkLength() error {
 func (d *Downloader) getByteRange() []string {
 	var rangeArr = []string{}
 	var from, to int64
-	for i := 0; i < d.splitNum; i++ {
+	for i := 0; i < d.SplitNum; i++ {
 		switch i {
 		case 0:
 			from = 0
 			to = d.chunkLength
-		case d.splitNum - 1:
+		case d.SplitNum - 1:
 			from = to + 1
 			to = d.contentLength
 		default:
@@ -132,7 +132,7 @@ func (d *Downloader) splitDownload(part int, rangeString string) error {
 	}
 	defer file.Close()
 	//部分ダウンロードして外部ファイルに保存
-	return partialRequest(d.url, part, rangeString, file)
+	return partialRequest(d.URL, part, rangeString, file)
 }
 
 //分割ダウンロード
@@ -166,13 +166,13 @@ func partialRequest(url string, part int, rangeString string, file *os.File) err
 
 //分割ダウンロードしたファイルを合体して復元する
 func (d *Downloader) margeChunk() error {
-	margeFile, err := os.Create(filepath.Base(d.url))
+	margeFile, err := os.Create(filepath.Base(d.URL))
 	if err != nil {
 		return err
 	}
 	defer margeFile.Close()
 
-	for i := 0; i < d.splitNum; i++ {
+	for i := 0; i < d.SplitNum; i++ {
 		file, err := os.Open(fmt.Sprintf("part%v", i+1))
 		if err != nil {
 			return err
