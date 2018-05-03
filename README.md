@@ -1,4 +1,5 @@
 [![CircleCI](https://circleci.com/gh/yusukemisa/goIria/tree/master.svg?style=svg)](https://circleci.com/gh/yusukemisa/goIria/tree/master)
+[![codecov](https://codecov.io/gh/yusukemisa/goIria/branch/master/graph/badge.svg)](https://codecov.io/gh/yusukemisa/goIria)
 ## goIria
 Goによる分割ダウンロード実装
 
@@ -30,7 +31,7 @@ $ goIria https://dl.google.com/go/go1.10.1.src.tar.gz
 ## 分割ダウンロードのUT
 - [x] とりあえず１ケース
 - [x] Circle CIで自動実行
-- [ ] カバレッジの測定
+- [x] カバレッジの測定
 - [ ] 失敗するパティーンの作成
 
 
