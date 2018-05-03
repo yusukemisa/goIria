@@ -10,10 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"time"
 
 	"golang.org/x/net/context/ctxhttp"
+	"golang.org/x/sync/errgroup"
 )
 
 //Downloader is setting
@@ -22,7 +22,7 @@ type Downloader struct {
 	contentLength int64  //取得対象ファイルサイズ
 	splitNum      int    //ダウンロード分割数
 	chunkLength   int64  //ダウンロード分割サイズ
-	wg            sync.WaitGroup
+	eg            errgroup.Group
 }
 
 //ダウンロード用一時ファイル part1~part{splitNum}
@@ -50,7 +50,6 @@ func New(args []string) (*Downloader, error) {
 		url:      args[1],
 		splitNum: splitNum,
 	}, nil
-
 }
 
 //Execute はDownloaderメイン処理
@@ -61,14 +60,21 @@ func (d *Downloader) Execute() error {
 	}
 	//gorutineで分割ダウンロード
 	for i, v := range d.getByteRange() {
-		d.wg.Add(1)
+		part := i + 1
+		rangeString := v
 		log.Printf("splitDownload part%v start %v\n", i+1, v)
 		//goルーチンで動かす関数はforループが回りきってから動き始めるので
 		//goルーチン内でAdd(1)するとWaitされない場合がある
-		go d.splitDownload(i+1, v)
+		d.eg.Go(func() error {
+			return d.splitDownload(part, rangeString)
+		})
 	}
+
 	//分割ダウンロードが終わるまでブロック
-	d.wg.Wait()
+	if err := d.eg.Wait(); err != nil {
+		return err
+	}
+
 	//分割ダウンロードしたファイル合体
 	return d.margeChunk()
 }
@@ -90,7 +96,7 @@ func (d *Downloader) setChunkLength() error {
 	//分割サイズの決定
 	d.contentLength = res.ContentLength
 	d.chunkLength = res.ContentLength / int64(d.splitNum)
-	//log.Printf("Accept-Ranges:%v,ContentLength:%v,chunkSize:%v\n", res.Header.Get("Accept-Ranges"), res.ContentLength, d.chunkLength)
+	log.Printf("Accept-Ranges:%v,ContentLength:%v,chunkSize:%v\n", res.Header.Get("Accept-Ranges"), res.ContentLength, d.chunkLength)
 	return nil
 }
 
@@ -125,26 +131,17 @@ func (d *Downloader) splitDownload(part int, rangeString string) error {
 		return err
 	}
 	defer file.Close()
-
 	//部分ダウンロードして外部ファイルに保存
-	if err := partialRequest(d.url, part, rangeString, file); err != nil {
-		return err
-	}
-	//メソッド内部で状態を変えるのは悪手か？
-	d.wg.Done()
-	log.Printf("splitDownload part%v done\n", part)
-	return nil
+	return partialRequest(d.url, part, rangeString, file)
 }
 
 //分割ダウンロード
 func partialRequest(url string, part int, rangeString string, file *os.File) error {
-
 	//リクエスト作成
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
 	}
-
 	req.Header.Set("Range",
 		fmt.Sprintf("bytes=%v", rangeString))
 
@@ -158,8 +155,8 @@ func partialRequest(url string, part int, rangeString string, file *os.File) err
 	res, err := http.DefaultClient.Do(req)
 
 	//デバッグ用レスポンスヘッダ出力
-	// dumpResp, _ := httputil.DumpResponse(res, false)
-	// fmt.Println(string(dumpResp))
+	//dumpResp, _ := httputil.DumpResponse(res, false)
+	//fmt.Println(string(dumpResp))
 
 	if _, err := io.Copy(file, res.Body); err != nil {
 		return err
