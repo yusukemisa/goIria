@@ -1,3 +1,4 @@
+[![CircleCI](https://circleci.com/gh/yusukemisa/goIria/tree/master.svg?style=svg)](https://circleci.com/gh/yusukemisa/goIria/tree/master)
 ## goIria
 Goによる分割ダウンロード実装
 
@@ -27,8 +28,8 @@ $ goIria https://dl.google.com/go/go1.10.1.src.tar.gz
 - [x] 分割ダウンロード中のgorutineでエラーが発生した時はerrgourpを使用する
 
 ## 分割ダウンロードのUT
-- [ ] とりあえず１ケース
-- [ ] Circle CIで自動実行
+- [x] とりあえず１ケース
+- [x] Circle CIで自動実行
 - [ ] カバレッジの測定
 - [ ] 失敗するパティーンの作成
 
